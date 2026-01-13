@@ -1,4 +1,6 @@
-theme_swim_stats <- function(base_family = "Inter", base_size = 14) {
+library(ggplot2)
+
+theme_swim_stats <- function(base_family = "Montserrat", base_size = 12) {
   theme_minimal(base_family = base_family, base_size = base_size) +
     theme(
       plot.margin = margin(l = 5, r = 5, b = 10),
