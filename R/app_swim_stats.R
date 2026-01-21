@@ -1,38 +1,82 @@
 library(shiny)
 library(bslib)
+library(shinyWidgets)
 library(tidyverse)
 library(scales)
+library(systemfonts)
+
+options(shiny.useragg = TRUE)
 
 app_swim_stats <- function() {
+  # Register fonts ---------------------------------------------------------
+  clear_registry()
+
+  num_font_path_plain <- system.file(
+    "fonts/FiraCode-Regular.ttf",
+    package = "swimStats"
+  )
+
+  num_font_path_bold <- system.file(
+    "fonts/FiraCode-Bold.ttf",
+    package = "swimStats"
+  )
+  register_font(
+    "Num Font",
+    plain = num_font_path_plain,
+    bold = num_font_path_bold
+  )
+
+  app_theme <- bs_theme(
+    preset = "lux",
+    bg = "#fff",
+    fg = "#B40F20",
+    base_font = font_google("Montserrat"),
+    heading_font = font_google("Montserrat Alternates"),
+    `enable-rounded` = TRUE
+  ) |>
+    bs_add_rules(sass::sass_file(system.file(
+      "app/www/styles.scss",
+      package = "swimStats"
+    )))
+
   df_swims <- load_swim_data()
   choices_year <- unique(year(df_swims$activity_date))
   choices_month <- filter_months(df_swims, year(Sys.Date()))
 
   ui <- page_sidebar(
     title = "Kaustav's Swim Stats",
-    theme = bs_theme(
-      preset = "lux",
-      bg = "#fff",
-      fg = "#B40F20",
-      base_font = font_google("Montserrat"),
-      heading_font = font_google("Montserrat Alternates"),
-      `enable-rounded` = TRUE
-    ),
+    theme = app_theme,
     sidebar = sidebar(
       open = "closed",
-      selectInput(
+      pickerInput(
         "year",
         "Select year",
         choices = choices_year,
         selected = year(Sys.Date())
       ),
-      selectInput(
+      pickerInput(
         "month",
         "Select month",
         choices = choices_month,
         selected = month(Sys.Date())
+      ),
+    ),
+    div(
+      id = "nav-control",
+      actionButton(
+        "btn_prev_month",
+        "← Prev",
+        class = "btn-sm",
+        inline = TRUE
+      ),
+      actionButton(
+        "btn_next_month",
+        "Next →",
+        class = "btn-sm",
+        inline = TRUE
       )
     ),
+    h3("Jan 26", class = "month-title"),
     layout_column_wrap(
       width = 1 / 4,
       value_box(
@@ -59,7 +103,8 @@ app_swim_stats <- function() {
       ),
       card(
         card_header("Benchmark to previous month"),
-        card_body("Plot showing the progress compared to previous month")
+        # card_body("Plot showing the progress compared to previous month")
+        card_body(plotOutput("month_swim_compare"))
       )
     ),
     fluidRow(column(
@@ -80,7 +125,7 @@ app_swim_stats <- function() {
       choices_month <- filter_months(df_swims, input$year)
       latest_month <- choices_month[length(choices_month)]
 
-      updateSelectInput(
+      updatePickerInput(
         inputId = "month",
         choices = choices_month,
         selected = latest_month
@@ -90,6 +135,17 @@ app_swim_stats <- function() {
     output$month_swim_calendar <- renderPlot(
       {
         plot_monthly_swim_calendar(
+          df_swims,
+          year = as.numeric(input$year),
+          month = input$month
+        )
+      },
+      res = 96
+    )
+
+    output$month_swim_compare <- renderPlot(
+      {
+        plot_monthly_compare(
           df_swims,
           year = as.numeric(input$year),
           month = input$month
