@@ -1,6 +1,7 @@
 library(shiny)
 library(bslib)
 library(shinyWidgets)
+library(shinyjs)
 library(tidyverse)
 library(scales)
 library(systemfonts)
@@ -43,9 +44,13 @@ app_swim_stats <- function() {
   choices_year <- unique(year(df_swims$activity_date))
   choices_month <- filter_months(df_swims, year(Sys.Date()))
 
+  min_date <- floor_date(min(df_swims$activity_date), unit = "month")
+  max_date <- floor_date(max(df_swims$activity_date), unit = "month")
+
   ui <- page_sidebar(
     title = "Kaustav's Swim Stats",
     theme = app_theme,
+    useShinyjs(),
     sidebar = sidebar(
       open = "closed",
       pickerInput(
@@ -69,14 +74,14 @@ app_swim_stats <- function() {
         class = "btn-sm",
         inline = TRUE
       ),
-      actionButton(
+      hidden(actionButton(
         "btn_next_month",
         "Next →",
         class = "btn-sm",
         inline = TRUE
-      )
+      ))
     ),
-    h3("Jan 26", class = "month-title"),
+    h3(uiOutput("month_title", inline = TRUE), class = "month-title"),
     layout_column_wrap(
       width = 1 / 4,
       value_box(
@@ -90,7 +95,7 @@ app_swim_stats <- function() {
         showcase = icon("water")
       ),
       value_box(
-        title = "Average pace (mins per 100m)",
+        title = "Average pace",
         value = uiOutput("avg_pace", inline = TRUE),
         showcase = icon("clock")
       )
@@ -103,7 +108,6 @@ app_swim_stats <- function() {
       ),
       card(
         card_header("Benchmark to previous month"),
-        # card_body("Plot showing the progress compared to previous month")
         card_body(plotOutput("month_swim_compare"))
       )
     ),
@@ -120,16 +124,95 @@ app_swim_stats <- function() {
   )
 
   server <- function(input, output, session) {
+    current_date <- reactive(make_date(input$year, input$month))
+    choices_month <- reactiveVal()
+    is_min_month <- reactive(current_date() == min_date)
+    is_max_month <- reactive(current_date() == max_date)
+
     observeEvent(input$year, {
       freezeReactiveValue(input, "month")
-      choices_month <- filter_months(df_swims, input$year)
-      latest_month <- choices_month[length(choices_month)]
+      choices_month(filter_months(df_swims, input$year))
+      latest_month <- choices_month()[length(choices_month())]
 
       updatePickerInput(
         inputId = "month",
-        choices = choices_month,
+        choices = choices_month(),
         selected = latest_month
       )
+    })
+
+    # Toggle button visibility
+    observeEvent(c(input$year, input$month), {
+      if (is_min_month()) {
+        shinyjs::hide("btn_prev_month")
+      } else {
+        shinyjs::show("btn_prev_month")
+      }
+
+      if (is_max_month()) {
+        shinyjs::hide("btn_next_month")
+      } else {
+        shinyjs::show("btn_next_month")
+      }
+    })
+
+    observeEvent(input$btn_prev_month, {
+      previous_date <- current_date() - months(1)
+
+      updatePickerInput(inputId = "year", selected = year(previous_date))
+
+      # Find the closest available month on or before the target date
+      target_month <- month(previous_date, label = TRUE)
+      matching_idx <- which(choices_month() == target_month)
+
+      if (length(matching_idx) > 0) {
+        updatePickerInput(
+          inputId = "month",
+          selected = month(previous_date, label = TRUE)
+        )
+      } else {
+        # Fall back to the largest month less than the target
+        valid_idx <- which(
+          as.numeric(choices_month()) < as.numeric(target_month)
+        )
+        selected_month <- choices_month()[max(valid_idx)]
+        updatePickerInput(
+          inputId = "month",
+          selected = selected_month
+        )
+      }
+    })
+
+    observeEvent(input$btn_next_month, {
+      next_date <- current_date() + months(1)
+
+      updatePickerInput(inputId = "year", selected = year(next_date))
+
+      # Find the closest available month on or after the target date
+      target_month <- month(next_date, label = TRUE)
+      matching_idx <- which(choices_month() == target_month)
+
+      if (length(matching_idx) > 0) {
+        updatePickerInput(
+          inputId = "month",
+          selected = month(next_date, label = TRUE)
+        )
+      } else {
+        # Fall back to the smallest month greater than the target
+        valid_idx <- which(
+          as.numeric(choices_month()) > as.numeric(target_month)
+        )
+        selected_month <- choices_month()[min(valid_idx)]
+        updatePickerInput(
+          inputId = "month",
+          selected = selected_month
+        )
+      }
+    })
+
+    output$month_title <- renderUI({
+      req(input$year, input$month)
+      get_title(input$year, input$month)
     })
 
     output$month_swim_calendar <- renderPlot(

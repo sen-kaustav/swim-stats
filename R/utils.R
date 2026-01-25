@@ -1,5 +1,16 @@
 library(tidyverse)
 
+
+#' @export
+get_title <- function(year, month) {
+  paste(month, year)
+}
+
+#' @export
+make_date <- function(year, month) {
+  ymd(paste0(year, str_pad(month, width = 2, side = "left", pad = "0"), "01"))
+}
+
 #' @export
 filter_months <- function(df_swims, year) {
   df_swims |>
@@ -38,5 +49,11 @@ get_avg_pace <- function(df_swims, year, month) {
   avg_pace <- 100 * sum(df_month$moving_time) / (sum(df_month$distance) * 60)
   minutes <- floor(avg_pace)
   seconds <- round((avg_pace - minutes) * 60)
-  paste0(minutes, ":", sprintf("%02d", seconds))
+  span(
+    paste0(minutes, ":", sprintf("%02d", seconds)),
+    span(
+      "/ 100m",
+      style = "font-size: 1rem; color: #b40f1f65"
+    )
+  )
 }

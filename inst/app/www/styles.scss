@@ -6,7 +6,15 @@
 #nav-control {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+}
+
+#nav-control button:first-child {
+  flex: 0 0 auto;
+}
+
+#nav-control button:last-child {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 #nav-control button {
