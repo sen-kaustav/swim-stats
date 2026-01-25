@@ -47,10 +47,18 @@ app_swim_stats <- function() {
   min_date <- floor_date(min(df_swims$activity_date), unit = "month")
   max_date <- floor_date(max(df_swims$activity_date), unit = "month")
 
+  # Add resource path ------------------------------------------------------
+  addResourcePath("www", system.file("app/www", package = "swimStats"))
+
   ui <- page_sidebar(
     title = "Kaustav's Swim Stats",
     theme = app_theme,
     useShinyjs(),
+    tags$head(tags$link(
+      rel = "icon",
+      type = "image/png",
+      href = "www/logo.png"
+    )),
     sidebar = sidebar(
       open = "closed",
       pickerInput(
